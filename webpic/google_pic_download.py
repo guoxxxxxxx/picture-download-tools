@@ -41,7 +41,7 @@ def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, di
         if downloader.check_images_count(min_count):
             driver.close()
             log_utils.log_info(f'google中的图片已爬取完成! 共计爬取图片{downloader.get_download_images_count()}张!')
-            return
+            return downloader.get_download_images_count()
         img_url_list = []
         img_urls_content = None
         if use_implicitly_wait:

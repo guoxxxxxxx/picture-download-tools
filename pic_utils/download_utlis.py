@@ -58,7 +58,7 @@ class DownloadUtils:
             os.remove(temp_filename)
             return True
         except Exception as e:
-            log_utils.log_info(f'urllib download error: {e}')
+            # log_utils.log_info(f'urllib download error: {e}')
             return False
 
     def requests_download(self, url):
@@ -84,7 +84,7 @@ class DownloadUtils:
             else:
                 return False
         except Exception as e:
-            log_utils.log_info(f'requests download error: {e}')
+            # log_utils.log_info(f'requests download error: {e}')
             return False
 
     def wget_download(self, url):
@@ -100,8 +100,8 @@ class DownloadUtils:
             os.remove(temp_filename)
             return True
         except Exception as e:
-            log_utils.log_info(f'wget download error: {e}')
-
+            # log_utils.log_info(f'wget download error: {e}')
+            return False
     def save_base64(self, base64_string=None, min_size=32):
         """
         保存base64格式的文件, 此函数用于保存google中的部分图片
