@@ -26,6 +26,7 @@
 conda create -n pic_download python=3.10
 conda activate pic_download
 
+git clone https://github.com/guoxxxxxxx/picture-download-tools.git
 pip install requirement.txt
 ```
 
