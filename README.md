@@ -32,7 +32,7 @@ pip install requirement.txt
 - 程序运行指令(命令行)
 
 ```shell
-python main.py --query=keywords --engine=google,baidu,sogou min_count=500
+python main.py --query=keywords --engine=google,baidu,sogou --min_count=500
 ```
 
 - 也可以采用Pycharm等工具运行，运行文件为`main.py`
