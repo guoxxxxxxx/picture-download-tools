@@ -22,7 +22,16 @@ def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, di
     if not os.path.exists(os.path.join(save_path, query, "sougou")):
         os.makedirs(os.path.join(save_path, query, "sougou"))
     # 初始化下载器
-    downloader = download_utlis.DownloadUtils(save_path=os.path.join(save_path, query, "sougou"))
+    if save_path != '.' or save_path != '..':
+        # 创建图片存储文件夹
+        if not os.path.exists(os.path.join(save_path, "sougou")):
+            os.makedirs(os.path.join(save_path, "sougou"))
+        downloader = download_utlis.DownloadUtils(save_path=os.path.join(save_path, "sougou"))
+    else:
+        # 创建图片存储文件夹
+        if not os.path.exists(os.path.join(save_path, query, "sougou")):
+            os.makedirs(os.path.join(save_path, query, "sougou"))
+        downloader = download_utlis.DownloadUtils(save_path=os.path.join(save_path, query, "sougou"))
     # 初始化WebDriver
     chrome_options = driver_utils.get_driver_options(disable_logs=disable_logs, disable_gui=disable_gui)
     # 如果未传入driver则新建driver
@@ -37,7 +46,7 @@ def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, di
     idx = 0     # 页面索引
     pre_length = 0
     while True:
-        if downloader.check_images_count(min_count):
+        if downloader.check_images_count(min_count) and min_count != 0:
             driver.close()
             log_utils.log_info(f'sougou中的图片已爬取完成! 共计爬取图片{downloader.get_download_images_count()}张!')
             return downloader.get_download_images_count()

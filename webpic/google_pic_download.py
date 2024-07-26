@@ -18,11 +18,17 @@ from pic_utils import driver_utils, log_utils, download_utlis, page_utils
 def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, disable_gui=True, disable_logs=True,
         use_implicitly_wait=True, min_count=1000):
     url = "https://images.google.com/"
-    # 创建图片存储文件夹
-    if not os.path.exists(os.path.join(save_path, query, "google")):
-        os.makedirs(os.path.join(save_path, query, "google"))
     # 初始化下载器
-    downloader = download_utlis.DownloadUtils(save_path=os.path.join(save_path, query, "google"))
+    if save_path != '.' or save_path != '..':
+        # 创建图片存储文件夹
+        if not os.path.exists(os.path.join(save_path, "google")):
+            os.makedirs(os.path.join(save_path, "google"))
+        downloader = download_utlis.DownloadUtils(save_path=os.path.join(save_path, "google"))
+    else:
+        # 创建图片存储文件夹
+        if not os.path.exists(os.path.join(save_path, query, "google")):
+            os.makedirs(os.path.join(save_path, query, "google"))
+        downloader = download_utlis.DownloadUtils(save_path=os.path.join(save_path, query, "google"))
     # 初始化WebDriver
     chrome_options = driver_utils.get_driver_options(disable_logs=disable_logs, disable_gui=disable_gui)
     # 如果未传入driver则新建driver
@@ -38,7 +44,7 @@ def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, di
     pre_length = 0
     zero_times = 0
     while True:
-        if downloader.check_images_count(min_count):
+        if downloader.check_images_count(min_count) and min_count != 0:
             driver.close()
             log_utils.log_info(f'google中的图片已爬取完成! 共计爬取图片{downloader.get_download_images_count()}张!')
             return downloader.get_download_images_count()

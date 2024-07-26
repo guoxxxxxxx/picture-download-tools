@@ -18,11 +18,17 @@ from pic_utils import driver_utils, log_utils, download_utlis, page_utils
 def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, disable_gui=True, disable_logs=True,
         use_implicitly_wait=True, min_count=1000):
     url = "https://image.baidu.com/"
-    # 创建图片存储文件夹
-    if not os.path.exists(os.path.join(save_path, query, "baidu")):
-        os.makedirs(os.path.join(save_path, query, "baidu"))
     # 初始化下载器
-    downloader = download_utlis.DownloadUtils(save_path=os.path.join(save_path, query, "baidu"))
+    if save_path != '.' or save_path != '..':
+        # 创建图片存储文件夹
+        if not os.path.exists(os.path.join(save_path, "baidu")):
+            os.makedirs(os.path.join(save_path, "baidu"))
+        downloader = download_utlis.DownloadUtils(save_path=os.path.join(save_path, "baidu"))
+    else:
+        # 创建图片存储文件夹
+        if not os.path.exists(os.path.join(save_path, query, "baidu")):
+            os.makedirs(os.path.join(save_path, query, "baidu"))
+        downloader = download_utlis.DownloadUtils(save_path=os.path.join(save_path, query, "baidu"))
     # 初始化WebDriver
     chrome_options = driver_utils.get_driver_options(disable_logs=disable_logs, disable_gui=disable_gui)
     # 如果未传入driver则新建driver
@@ -36,7 +42,7 @@ def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, di
     driver.find_element(By.CLASS_NAME, "submit-btn_ZmEXZ").click()
     idx = 0     # 页面索引
     while True:
-        if downloader.check_images_count(min_count):
+        if downloader.check_images_count(min_count) and min_count != 0:
             driver.close()
             log_utils.log_info(f'baidu中的图片已爬取完成! 共计爬取图片{downloader.get_download_images_count()}张!')
             return downloader.get_download_images_count()
@@ -55,6 +61,7 @@ def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, di
                 img_urls_content = driver.find_element(By.CLASS_NAME, f'pageNum{idx}')
             except:
                 log_utils.log_info(f'再次尝试失败, 放弃该页面图片的获取, {delta}s 后程序继续执行...')
+                continue
         idx += 1
         # 异步更新界面
         page_utils.async_scroll_down(driver)

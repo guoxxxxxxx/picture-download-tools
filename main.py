@@ -9,14 +9,14 @@ from pic_utils import log_utils
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--query', type=str, default='keywords')  # 搜索关键词
-    parser.add_argument('--engine', type=str, default='google baidu sougou')  # 所采用的搜索引擎
+    parser.add_argument('--query', type=str, default='损伤军用车辆')  # 搜索关键词
+    parser.add_argument('--engine', type=str, default='baidu')  # 所采用的搜索引擎
     parser.add_argument('--disable_gui', type=bool, default=False)  # 是否关闭浏览器界面 建议在使用google关闭此选项
     parser.add_argument('--disable_logs', type=bool, default=True)  # 是否关闭警告日志
-    parser.add_argument('--save_path', type=str, default='.')  # 保存路径
+    parser.add_argument('--save_path', type=str, default='./download/军用车辆/完整')  # 保存路径
     parser.add_argument('--sleep_time', type=float, default=3)  # 网页刷新最大等待时间
     parser.add_argument('--use_implicitly_wait', type=bool, default=True)  # 是否采用隐式等待(这种等待方式可以缩短实际等待时间)
-    parser.add_argument('--min_count', type=int, default=500)  # 当下载图片数量大于该数值时，程序停止
+    parser.add_argument('--min_count', type=int, default=0)  # 当下载图片数量大于该数值时，程序停止 # 若为0则无限下载
     args = parser.parse_args()
 
     if 'google' in args.engine:

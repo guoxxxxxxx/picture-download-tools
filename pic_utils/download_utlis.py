@@ -16,7 +16,7 @@ from pic_utils import log_utils
 
 class DownloadUtils:
 
-    def __init__(self, url=None, save_path=None, min_size=32):
+    def __init__(self, url=None, save_path=None, min_size=80):
         """
         构造函数
         :param url: 目标图片地址
