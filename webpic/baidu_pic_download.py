@@ -6,6 +6,8 @@ import os.path
 import random
 from argparse import ArgumentParser
 from time import sleep
+
+import requests
 from tqdm import tqdm
 
 from selenium.webdriver.chrome.options import Options
@@ -16,7 +18,7 @@ from pic_utils import driver_utils, log_utils, download_utlis, page_utils
 
 
 def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, disable_gui=True, disable_logs=True,
-        use_implicitly_wait=True, min_count=1000):
+        use_implicitly_wait=True, min_count=1000, high_quality=False):
     url = "https://image.baidu.com/"
     # 创建图片存储文件夹
     if not os.path.exists(os.path.join(save_path, query, "baidu")):
@@ -59,14 +61,25 @@ def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, di
         # 异步更新界面
         page_utils.async_scroll_down(driver)
         # 获取所有图片对应的元素
-        elements_list = img_urls_content.find_elements(By.CSS_SELECTOR, "li.imgitem")
-        # 对元素内容进行解析, 获得图片网络资源地址
-        for el in elements_list:
-            if el.get_attribute("data-thumburl") is not None:
-                img_url_list.append(el.get_attribute("data-thumburl"))
-        for url in tqdm(img_url_list):
-            # 使用下载工具对图片进行下载
-            downloader.link_download_tools(url)
+        if high_quality is False:
+            elements_list = img_urls_content.find_elements(By.CSS_SELECTOR, "li.imgitem")
+            # 对元素内容进行解析, 获得图片网络资源地址
+            for el in elements_list:
+                if el.get_attribute("data-thumburl") is not None:
+                    img_url_list.append(el.get_attribute("data-thumburl"))
+            for url in tqdm(img_url_list):
+                # 使用下载工具对图片进行下载
+                downloader.link_download_tools(url)
+        else:
+            driver.find_element(By.NAME, "pn0").click()
+            driver.implicitly_wait(3)
+            driver.switch_to.window(driver.window_handles[-1])
+            driver.implicitly_wait(5)
+            for i in tqdm(range(min_count)):
+                high_quality_url = driver.find_element(By.CSS_SELECTOR, "img.currentImg").get_attribute("src")
+                driver.find_element(By.CSS_SELECTOR, "span.img-next").click()
+                downloader.link_download_tools(high_quality_url)
+                driver.implicitly_wait(3)
 
 
 if __name__ == '__main__':
