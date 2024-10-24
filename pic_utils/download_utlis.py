@@ -10,6 +10,8 @@ import os
 import requests
 import io
 import wget
+from requests.adapters import HTTPAdapter
+from urllib3 import Retry
 
 from pic_utils import log_utils
 
@@ -44,6 +46,37 @@ class DownloadUtils:
                 rgb_img.save(self.save_path_and_name)
             else:
                 img.save(self.save_path_and_name)
+
+    def download_carry_headers(self, url):
+        """
+        模拟头进行图像下载
+        :param url:
+        :return:
+        """
+        assert url is not None, 'url should not be None'
+        self.url = url
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
+        }
+        # 创建一个session对象
+        session = requests.Session()
+        # 设置重试策略
+        retries = Retry(total=5, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+        session.mount('http://', HTTPAdapter(max_retries=retries))
+        session.mount('https://', HTTPAdapter(max_retries=retries))
+
+        try:
+            # 使用session发送请求
+            response = session.get(url, headers=headers, timeout=10)
+            if response.status_code == 200:
+                with open(self.save_path_and_name, 'wb') as f:
+                    f.write(response.content)
+                return True
+            else:
+                return False
+        except requests.exceptions.RequestException as e:
+            print(f"Error downloading image: {e}")
+            return False
 
     def urllib_download(self, url):
         """
@@ -102,6 +135,7 @@ class DownloadUtils:
         except Exception as e:
             # log_utils.log_info(f'wget download error: {e}')
             return False
+
     def save_base64(self, base64_string=None, min_size=32):
         """
         保存base64格式的文件, 此函数用于保存google中的部分图片
@@ -125,22 +159,26 @@ class DownloadUtils:
         image.save(self.save_path_and_name)
         return True
 
-    def link_download_tools(self, url):
+    def link_download_tools(self, url, show_log=True):
         """
         链式下载
+        :param show_log:
         :param url:
         :return:
         """
         self.filename = hashlib.md5(url.encode()).hexdigest() + '.jpg'
         self.save_path_and_name = os.path.join(self.save_path, self.filename)
-        if self.urllib_download(url) is True:
+        if self.download_carry_headers(url) is True:
+            return True
+        elif self.urllib_download(url) is True:
             return True
         elif self.requests_download(url) is True:
             return True
         elif self.wget_download(url) is True:
             return True
         else:
-            log_utils.log_info(f'3种下载方式均失败, 放弃当前图片: {url}')
+            if show_log:
+                log_utils.log_info(f'4种下载方式均失败, 放弃当前图片: {url}')
             return False
 
     def check_images_count(self, min_count):
@@ -160,3 +198,10 @@ class DownloadUtils:
         :return:
         """
         return len(os.listdir(self.save_path))
+
+
+if __name__ == '__main__':
+    test_url = """https://archive-images.prod.global.a201836.reutersmedia.net/2022/03/21/2022-03-21T182907Z_18054_MRPRC2C6T9OLXEP_RTRMADP_0_UKRAINE-CRISIS-KYIV-DEFENCE.JPG"""
+
+
+

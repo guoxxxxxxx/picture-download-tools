@@ -4,6 +4,7 @@
 # @File : baidu_pic
 import os.path
 import random
+import time
 from time import sleep
 from tqdm import tqdm
 
@@ -16,7 +17,7 @@ from pic_utils import driver_utils, log_utils, download_utlis, page_utils
 
 
 def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, disable_gui=True, disable_logs=True,
-        use_implicitly_wait=True, min_count=1000):
+        use_implicitly_wait=True, min_count=1000, high_quality=False):
     url = "https://images.google.com/"
     # 初始化下载器
     if save_path != '.' or save_path != '..':
@@ -33,7 +34,10 @@ def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, di
     chrome_options = driver_utils.get_driver_options(disable_logs=disable_logs, disable_gui=disable_gui)
     # 如果未传入driver则新建driver
     if driver is None:
+        chrome_options.add_argument("--no-first-run")  # 禁用首次运行提示
+        chrome_options.add_argument("--no-default-browser-check")  # 禁用默认浏览器检查
         driver = webdriver.Chrome(options=chrome_options)
+
     driver.get(url)
     # 定位输入框
     driver.find_element(By.CLASS_NAME, 'gLFyf').send_keys(query)
@@ -43,47 +47,80 @@ def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, di
     idx = 0     # 页面索引
     pre_length = 0
     zero_times = 0
-    while True:
-        if downloader.check_images_count(min_count) and min_count != 0:
-            driver.close()
-            log_utils.log_info(f'google中的图片已爬取完成! 共计爬取图片{downloader.get_download_images_count()}张!')
-            return downloader.get_download_images_count()
-        img_url_list = []
-        img_urls_content = None
-        if use_implicitly_wait:
-            driver.implicitly_wait(sleep_time)      # 隐式等待响应时间
-        else:
-            sleep(sleep_time)       # 等待界面加载完毕所需等待时间
-        try:
-            img_urls_content = driver.find_elements(By.CLASS_NAME, "YQ4gaf")[pre_length:]
-            pre_length += len(img_urls_content)
-        except:
-            delta = random.randrange(5, 100) * 0.1
-            log_utils.log_info(f'第{idx}页图片获取失败! {delta}s 后继续尝试...')
+    if high_quality is False:
+        while True:
+            if downloader.check_images_count(min_count) and min_count != 0:
+                driver.close()
+                log_utils.log_info(f'google中的图片已爬取完成! 共计爬取图片{downloader.get_download_images_count()}张!')
+                return downloader.get_download_images_count()
+            img_url_list = []
+            img_urls_content = None
+            if use_implicitly_wait:
+                driver.implicitly_wait(sleep_time)      # 隐式等待响应时间
+            else:
+                sleep(sleep_time)       # 等待界面加载完毕所需等待时间
             try:
                 img_urls_content = driver.find_elements(By.CLASS_NAME, "YQ4gaf")[pre_length:]
                 pre_length += len(img_urls_content)
             except:
-                log_utils.log_info(f'再次尝试失败, 放弃该页面图片的获取, {delta}s 后程序继续执行...')
-        # 异步更新界面
-        page_utils.async_scroll_down(driver)
-        # 对元素中图片进行解析并初次筛选
-        if len(img_urls_content) <= 0:
-            zero_times += 1
-            if zero_times >= 10:
-                log_utils.log_info(f'google图片已经抓取完毕，该关键词无可再抓取的文件!')
-                driver.close()
-                return
-        for el in tqdm(img_urls_content, desc='正在解析连接'):
-            if el.get_attribute("src") is not None and 'favicon' not in el.get_attribute("src") and 'gif' not in el.get_attribute("src"):
-                img_url_list.append(el.get_attribute("src"))
-        for url in tqdm(img_url_list, desc='downloading'):
-            # 若为网络资源路径则直接进行下载
-            if 'http' or 'https' in url:
-                downloader.link_download_tools(url)
-            # 若为base64编码则直接保存
-            elif 'jpeg' or 'png' in url and 'base64' in url:
-                downloader.save_base64(url)
+                delta = random.randrange(5, 100) * 0.1
+                log_utils.log_info(f'第{idx}页图片获取失败! {delta}s 后继续尝试...')
+                try:
+                    img_urls_content = driver.find_elements(By.CLASS_NAME, "YQ4gaf")[pre_length:]
+                    pre_length += len(img_urls_content)
+                except:
+                    log_utils.log_info(f'再次尝试失败, 放弃该页面图片的获取, {delta}s 后程序继续执行...')
+            # 异步更新界面
+            page_utils.async_scroll_down(driver)
+            # 对元素中图片进行解析并初次筛选
+            if len(img_urls_content) <= 0:
+                zero_times += 1
+                if zero_times >= 10:
+                    log_utils.log_info(f'google图片已经抓取完毕，该关键词无可再抓取的文件!')
+                    driver.close()
+                    return
+            for el in tqdm(img_urls_content, desc='正在解析连接'):
+                if el.get_attribute("src") is not None and 'favicon' not in el.get_attribute("src") and 'gif' not in el.get_attribute("src"):
+                    img_url_list.append(el.get_attribute("src"))
+            for url in tqdm(img_url_list, desc='downloading'):
+                # 若为网络资源路径则直接进行下载
+                if 'http' or 'https' in url:
+                    downloader.link_download_tools(url)
+                # 若为base64编码则直接保存
+                elif 'jpeg' or 'png' in url and 'base64' in url:
+                    downloader.save_base64(url)
+    else:
+        driver.implicitly_wait(10)
+        driver.find_elements(By.CSS_SELECTOR, "div.F0uyec")[0].click()
+        driver.implicitly_wait(10)
+        for i in tqdm(range(min_count)):
+            retry = 3
+            while retry >= 0:
+                try:
+                    driver.implicitly_wait(5)
+                    url = driver.find_element(By.CSS_SELECTOR, "img.iPVvYb").get_attribute("src").split("?")[0]
+                    if downloader.link_download_tools(url, False) is False:
+                        retry -= 1
+                        if retry < 0:
+                            log_utils.log_info(f"多次尝试均失败，跳过本次下载: {url}")
+                            driver.find_element(By.XPATH,
+                                                """//*[@id="Sva75c"]/div[2]/div[2]/div/div[2]/c-wiz/div/div[1]/div/div[2]/button[2]""").click()
+                    else:
+                        retry = -1
+                        driver.find_element(By.XPATH,
+                                            """//*[@id="Sva75c"]/div[2]/div[2]/div/div[2]/c-wiz/div/div[1]/div/div[2]/button[2]""").click()
+                    driver.implicitly_wait(3)
+                except:
+                    if retry > 0:
+                        retry -= 1
+                    else:
+                        driver.find_element(By.XPATH,
+                                            """//*[@id="Sva75c"]/div[2]/div[2]/div/div[2]/c-wiz/div/div[1]/div/div[2]/button[2]""").click()
+                        log_utils.log_info("爬取当前图片失败，已跳过")
+        log_utils.log_info("爬取完成！")
+        return
+
+
 
 
 if __name__ == '__main__':
