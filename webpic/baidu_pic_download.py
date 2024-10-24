@@ -82,11 +82,15 @@ def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, di
             driver.implicitly_wait(3)
             driver.switch_to.window(driver.window_handles[-1])
             driver.implicitly_wait(5)
+            fail_download_count = 0
             for i in tqdm(range(min_count)):
                 high_quality_url = driver.find_element(By.CSS_SELECTOR, "img.currentImg").get_attribute("src")
                 driver.find_element(By.CSS_SELECTOR, "span.img-next").click()
-                downloader.link_download_tools(high_quality_url)
+                if downloader.link_download_tools(high_quality_url) is False:
+                    fail_download_count += 1
                 driver.implicitly_wait(3)
+            log_utils.log_info("下载完成！")
+            return
 
 
 if __name__ == '__main__':
