@@ -59,7 +59,7 @@ python main.py --query=keywords --engine=google,baidu,sogou --min_count=500
 
 `--min_count:(type:int)`每个搜索引擎所需下载的图片数量，默认为500张，超过500张后，程序会自动停止。该设置并不是精确值，由于程序采用整页图片下载，实际下载图片数量会比设置值高一些。
 
-`--high_quality:(type:float)`是否采用高清图像下载方式，该参数仅对baidu搜索引擎下载有效
+`--high_quality:(type:float)`是否采用高清图像下载方式，该参数仅对baidu, google搜索引擎下载有效
 
 
 ## 3. 程序实际运行截图
