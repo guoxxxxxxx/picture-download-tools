@@ -4,6 +4,7 @@
 # @File : baidu_pic
 import os.path
 import random
+import time
 from argparse import ArgumentParser
 from time import sleep
 
@@ -78,13 +79,28 @@ def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, di
                 # 使用下载工具对图片进行下载
                 downloader.link_download_tools(url)
         else:
-            driver.find_element(By.NAME, "pn0").click()
+            try:
+                driver.find_element(By.NAME, "pn0").click()
+            except:
+                driver.find_elements(By.CSS_SELECTOR, "li.imgitem")[0].click()
             driver.implicitly_wait(3)
             driver.switch_to.window(driver.window_handles[-1])
             driver.implicitly_wait(5)
             fail_download_count = 0
+            high_fail = False
             for i in tqdm(range(min_count)):
-                high_quality_url = driver.find_element(By.CSS_SELECTOR, "img.currentImg").get_attribute("src")
+                # wait_time = random.random()
+                # time.sleep(wait_time)
+                time.sleep(0.35)
+                high_quality_url = None
+                try:
+                    if high_fail:
+                        high_quality_url = driver.find_element(By.CSS_SELECTOR, "div#srcPic>img").get_attribute("src")
+                    else:
+                        high_quality_url = driver.find_element(By.CSS_SELECTOR, "img.currentImg").get_attribute("src")
+                except:
+                    high_fail = True
+                    high_quality_url = driver.find_element(By.CSS_SELECTOR, "div#srcPic>img").get_attribute("src")
                 driver.find_element(By.CSS_SELECTOR, "span.img-next").click()
                 if downloader.link_download_tools(high_quality_url) is False:
                     fail_download_count += 1

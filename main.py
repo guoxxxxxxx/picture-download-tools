@@ -10,14 +10,14 @@ from pic_utils import log_utils
 if __name__ == '__main__':
     parser = ArgumentParser()
     # 建议使用google引擎爬取图片时使用英文关键词
-    parser.add_argument('--query', type=str, default='Destroyed military vehicle')  # 搜索关键词 建议google引擎使用英文进行搜索
-    parser.add_argument('--engine', type=str, default='google')  # 所采用的搜索引擎 可选项 google，baidu，sougou
+    parser.add_argument('--query', type=str, default='沙尘暴实拍图')  # 搜索关键词 建议google引擎使用英文进行搜索
+    parser.add_argument('--engine', type=str, default='baidu')  # 所采用的搜索引擎 可选项 google，baidu，sougou
     parser.add_argument('--disable_gui', type=bool, default=False)  # 是否关闭浏览器界面 建议在使用google关闭此选项
     parser.add_argument('--disable_logs', type=bool, default=True)  # 是否关闭警告日志
-    parser.add_argument('--save_path', type=str, default='./download/Destroyed military vehicle')  # 保存路径
+    parser.add_argument('--save_path', type=str, default='./download/weather/shachenbao')  # 保存路径
     parser.add_argument('--sleep_time', type=float, default=3)  # 网页刷新最大等待时间
     parser.add_argument('--use_implicitly_wait', type=bool, default=True)  # 是否采用隐式等待(这种等待方式可以缩短实际等待时间)
-    parser.add_argument('--min_count', type=int, default=500)  # 当下载图片数量大于该数值时，程序停止 # 若为0则无限下载
+    parser.add_argument('--min_count', type=int, default=1000)  # 当下载图片数量大于该数值时，程序停止 # 若为0则无限下载
     parser.add_argument('--high_quality', type=bool, default=True)  # 是否采用高质量图片下载模式， 注：采用该模式可能下载速度较慢
     args = parser.parse_args()
 

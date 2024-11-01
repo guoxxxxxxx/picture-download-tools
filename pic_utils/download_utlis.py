@@ -4,6 +4,9 @@
 # @File : DownloadUtils
 import base64
 import hashlib
+import random
+import threading
+import time
 import urllib.request
 from PIL import Image
 import os
@@ -159,13 +162,29 @@ class DownloadUtils:
         image.save(self.save_path_and_name)
         return True
 
-    def link_download_tools(self, url, show_log=True):
+    def link_download_tools(self, url, show_log=True, is_async=True):
         """
         链式下载
+        :param is_async:
         :param show_log:
         :param url:
         :return:
         """
+        if is_async:
+            time.sleep(0.01)
+            threading.Thread(target=self.async_link_download_tools, args=(url, show_log)).start()
+        else:
+            self.async_link_download_tools(url, show_log)
+
+    def async_link_download_tools(self, url, show_log=True):
+        """
+        异步链式下载
+        :param show_log:
+        :param url:
+        :return:
+        """
+        if url is None:
+            return False
         self.filename = hashlib.md5(url.encode()).hexdigest() + '.jpg'
         self.save_path_and_name = os.path.join(self.save_path, self.filename)
         if self.download_carry_headers(url) is True:
@@ -202,6 +221,3 @@ class DownloadUtils:
 
 if __name__ == '__main__':
     test_url = """https://archive-images.prod.global.a201836.reutersmedia.net/2022/03/21/2022-03-21T182907Z_18054_MRPRC2C6T9OLXEP_RTRMADP_0_UKRAINE-CRISIS-KYIV-DEFENCE.JPG"""
-
-
-
