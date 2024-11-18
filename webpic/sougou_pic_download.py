@@ -16,7 +16,7 @@ from pic_utils import driver_utils, log_utils, download_utlis, page_utils
 
 
 def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, disable_gui=True, disable_logs=True,
-        use_implicitly_wait=True, min_count=1000):
+        use_implicitly_wait=True, min_count=1000, is_async=True):
     url = "https://pic.sogou.com/"
     # 创建图片存储文件夹
     if not os.path.exists(os.path.join(save_path, query, "sougou")):
@@ -76,7 +76,7 @@ def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, di
                 img_url_list.append(el.get_attribute("drag-img"))
         for url in tqdm(img_url_list, desc='正在下载图片'):
             # 使用下载工具对图片进行下载
-            downloader.link_download_tools(url)
+            downloader.link_download_tools(url, is_async=is_async)
 
 
 if __name__ == '__main__':

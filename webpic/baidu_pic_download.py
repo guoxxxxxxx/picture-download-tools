@@ -19,7 +19,7 @@ from pic_utils import driver_utils, log_utils, download_utlis, page_utils
 
 
 def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, disable_gui=True, disable_logs=True,
-        use_implicitly_wait=True, min_count=1000, high_quality=False):
+        use_implicitly_wait=True, min_count=1000, high_quality=False, is_async=True):
     url = "https://image.baidu.com/"
     # 初始化下载器
     if save_path != '.' or save_path != '..':
@@ -77,7 +77,7 @@ def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, di
                     img_url_list.append(el.get_attribute("data-thumburl"))
             for url in tqdm(img_url_list):
                 # 使用下载工具对图片进行下载
-                downloader.link_download_tools(url)
+                downloader.link_download_tools(url, is_async=is_async)
         else:
             try:
                 driver.find_element(By.NAME, "pn0").click()
@@ -102,7 +102,7 @@ def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, di
                     high_fail = True
                     high_quality_url = driver.find_element(By.CSS_SELECTOR, "div#srcPic>img").get_attribute("src")
                 driver.find_element(By.CSS_SELECTOR, "span.img-next").click()
-                if downloader.link_download_tools(high_quality_url) is False:
+                if downloader.link_download_tools(high_quality_url, is_async=is_async) is False:
                     fail_download_count += 1
                 driver.implicitly_wait(3)
             log_utils.log_info("下载完成！")

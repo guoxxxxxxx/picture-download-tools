@@ -17,7 +17,7 @@ from pic_utils import driver_utils, log_utils, download_utlis, page_utils
 
 
 def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, disable_gui=True, disable_logs=True,
-        use_implicitly_wait=True, min_count=1000, high_quality=False):
+        use_implicitly_wait=True, min_count=1000, high_quality=False, is_async=True):
     url = "https://images.google.com/"
     # 初始化下载器
     if save_path != '.' or save_path != '..':
@@ -85,7 +85,7 @@ def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, di
             for url in tqdm(img_url_list, desc='downloading'):
                 # 若为网络资源路径则直接进行下载
                 if 'http' or 'https' in url:
-                    downloader.link_download_tools(url)
+                    downloader.link_download_tools(url, is_async=is_async)
                 # 若为base64编码则直接保存
                 elif 'jpeg' or 'png' in url and 'base64' in url:
                     downloader.save_base64(url)
@@ -99,7 +99,7 @@ def run(query, driver: webdriver.Chrome | None, save_path="..", sleep_time=3, di
                 try:
                     driver.implicitly_wait(5)
                     url = driver.find_element(By.CSS_SELECTOR, "img.iPVvYb").get_attribute("src").split("?")[0]
-                    if downloader.link_download_tools(url, False) is False:
+                    if downloader.link_download_tools(url, False, is_async=is_async) is False:
                         retry -= 1
                         if retry < 0:
                             log_utils.log_info(f"多次尝试均失败，跳过本次下载: {url}")

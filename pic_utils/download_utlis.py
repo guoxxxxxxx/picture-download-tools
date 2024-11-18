@@ -8,6 +8,8 @@ import random
 import threading
 import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
+
 from PIL import Image
 import os
 import requests
@@ -32,6 +34,7 @@ class DownloadUtils:
         self.save_path = save_path
         self.save_path_and_name = os.path.join(self.save_path, self.filename)
         self.min_size = min_size
+        self.thread_pool = ThreadPoolExecutor(5)
 
     def convert2jpg_and_save(self, file_path):
         """
@@ -94,7 +97,7 @@ class DownloadUtils:
             os.remove(temp_filename)
             return True
         except Exception as e:
-            # log_utils.log_info(f'urllib download error: {e}')
+            log_utils.log_info(f'urllib download error: {e}')
             return False
 
     def requests_download(self, url):
@@ -172,7 +175,8 @@ class DownloadUtils:
         """
         if is_async:
             time.sleep(0.01)
-            threading.Thread(target=self.async_link_download_tools, args=(url, show_log)).start()
+            # threading.Thread(target=self.async_link_download_tools, args=(url, show_log)).start()
+            self.thread_pool.submit(self.async_link_download_tools, url, show_log)
         else:
             self.async_link_download_tools(url, show_log)
 
