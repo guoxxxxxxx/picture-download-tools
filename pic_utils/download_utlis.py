@@ -4,17 +4,14 @@
 # @File : DownloadUtils
 import base64
 import hashlib
-import random
-import threading
+import io
+import os
 import time
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
-from PIL import Image
-import os
 import requests
-import io
-import wget
+from PIL import Image
 from requests.adapters import HTTPAdapter
 from urllib3 import Retry
 
@@ -23,205 +20,213 @@ from pic_utils import log_utils
 
 class DownloadUtils:
 
-    def __init__(self, url=None, save_path=None, min_size=80):
+    def __init__(self, url=None, save_path=None, min_size=80, num_threads=5):
         """
-        构造函数
         :param url: 目标图片地址
         :param save_path: 保存路径
+        :param min_size: 最小图片尺寸（像素），低于此值跳过
+        :param num_threads: 并发下载线程数
         """
         self.filename = 'blank.jpg'
         self.url = url
         self.save_path = save_path
         self.save_path_and_name = os.path.join(self.save_path, self.filename)
         self.min_size = min_size
-        self.thread_pool = ThreadPoolExecutor(5)
+        self.num_threads = num_threads
+        self.thread_pool = ThreadPoolExecutor(max_workers=num_threads)
+        self._failed_count = 0  # 下载失败计数
+        self._success_count = 0  # 下载成功计数
+        self._skip_count = 0     # 跳过的小图/GIF 计数
 
-    def convert2jpg_and_save(self, file_path):
-        """
-        将png图片转化为jpg格式并进行保存
-        :param file_path: 图片地址
-        :return:
-        """
-        with Image.open(file_path) as img:
-            if img.format == 'GIF':
-                return
-            elif img.size[0] < self.min_size or img.size[1] < self.min_size:
+    # ─── 工具方法 ────────────────────────────────────────────
+
+    def _should_skip_image(self, img: Image.Image) -> bool:
+        """判断图片是否需要跳过（GIF / 尺寸太小）"""
+        if img.format == 'GIF':
+            return True
+        if img.size[0] < self.min_size or img.size[1] < self.min_size:
+            return True
+        return False
+
+    def _convert_and_save(self, img: Image.Image):
+        """将图片转为 JPG 并保存"""
+        if img.format == 'PNG' and img.mode != 'P':
+            img = img.convert('RGB')
+        elif img.mode == 'P':
+            img = img.convert('RGB')
+        img.save(self.save_path_and_name, 'JPEG', quality=92)
+
+    def _check_disk_image(self, file_path: str) -> bool:
+        """从磁盘读取并校验图片文件，返回是否有效"""
+        try:
+            with Image.open(file_path) as img:
+                if self._should_skip_image(img):
+                    return False
+                self._convert_and_save(img)
                 return True
-            elif img.format == 'PNG':
-                rgb_img = img.convert('RGB')
-                rgb_img.save(self.save_path_and_name)
-            else:
-                img.save(self.save_path_and_name)
+        except Exception:
+            return False
 
-    def download_carry_headers(self, url):
-        """
-        模拟头进行图像下载
-        :param url:
-        :return:
-        """
+    # ─── 下载方法 ────────────────────────────────────────────
+
+    def download_carry_headers(self, url: str) -> bool:
+        """使用带重试和自定义头的 requests.Session 下载"""
         assert url is not None, 'url should not be None'
         self.url = url
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+            'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+            'Referer': 'https://image.baidu.com/',
         }
-        # 创建一个session对象
+
         session = requests.Session()
-        # 设置重试策略
-        retries = Retry(total=5, backoff_factor=1, status_forcelist=[500, 502, 503, 504])
+        retries = Retry(total=3, backoff_factor=0.5, status_forcelist=[500, 502, 503, 504])
         session.mount('http://', HTTPAdapter(max_retries=retries))
         session.mount('https://', HTTPAdapter(max_retries=retries))
 
         try:
-            # 使用session发送请求
-            response = session.get(url, headers=headers, timeout=10)
-            if response.status_code == 200:
+            response = session.get(url, headers=headers, timeout=15)
+            if response.status_code == 200 and len(response.content) > 512:
                 with open(self.save_path_and_name, 'wb') as f:
                     f.write(response.content)
+                # 校验图片
+                if not self._check_disk_image(self.save_path_and_name):
+                    os.remove(self.save_path_and_name)
+                    return False
                 return True
-            else:
-                return False
-        except requests.exceptions.RequestException as e:
-            print(f"Error downloading image: {e}")
+            return False
+        except requests.exceptions.RequestException:
             return False
 
-    def urllib_download(self, url):
-        """
-        使用urllib方法对图像进行下载
-        :return:
-        """
+    def urllib_download(self, url: str) -> bool:
+        """使用 urllib 下载图片"""
         assert url is not None, 'url should not be None'
         self.url = url
         try:
             temp_filename, _ = urllib.request.urlretrieve(self.url)
-            self.convert2jpg_and_save(temp_filename)
-            os.remove(temp_filename)
-            return True
-        except Exception as e:
-            log_utils.log_info(f'urllib download error: {e}')
+            result = self._check_disk_image(temp_filename)
+            if os.path.exists(temp_filename):
+                os.remove(temp_filename)
+            return result
+        except Exception:
             return False
 
-    def requests_download(self, url):
-        """
-        使用requests库对图像进行下载
-        :return:
-        """
+    def requests_download(self, url: str) -> bool:
+        """使用 requests 下载并直接解析为 PIL Image"""
         assert url is not None, 'url should not be None'
         self.url = url
         try:
-            response = requests.get(self.url)
-            if response.status_code == 200:
+            response = requests.get(self.url, timeout=15)
+            if response.status_code == 200 and len(response.content) > 512:
                 image = Image.open(io.BytesIO(response.content))
-                if image.format == 'GIF':
-                    return
-                elif image.size[0] < self.min_size or image.size[1] < self.min_size:
-                    return True
-                elif image.format == 'PNG':
-                    if image.mode != 'P':
-                        image = image.convert('RGB')
-                image.save(self.save_path_and_name)
+                if self._should_skip_image(image):
+                    self._skip_count += 1
+                    return False
+                self._convert_and_save(image)
                 return True
-            else:
-                return False
-        except Exception as e:
-            # log_utils.log_info(f'requests download error: {e}')
+            return False
+        except Exception:
             return False
 
-    def wget_download(self, url):
-        """
-        使用wget库对图像进行下载
-        :return:
-        """
-        assert url is not None, 'url should not be None'
-        self.url = url
-        try:
-            temp_filename = wget.download(self.url)
-            self.convert2jpg_and_save(temp_filename)
-            os.remove(temp_filename)
-            return True
-        except Exception as e:
-            # log_utils.log_info(f'wget download error: {e}')
-            return False
-
-    def save_base64(self, base64_string=None, min_size=32):
-        """
-        保存base64格式的文件, 此函数用于保存google中的部分图片
-        @:param base64_string: base64的文本内容
-        @:param min_size: 最小尺寸，当图片宽或高小于该尺寸时，忽略该图片
-        :return:
-        """
+    def save_base64(self, base64_string: str, min_size: int = 32) -> bool:
+        """保存 base64 编码的图片"""
         assert base64_string is not None, 'base64 should not be None'
-        # base64编码太长了，截取前200位用于图片名称的生成
-        self.filename = hashlib.md5(base64_string[:200].encode()).hexdigest()
-        image_data = base64.b64decode(base64_string)
-        image = Image.open(io.BytesIO(image_data))
-        # 当图片尺寸小于min_size时自动略过该图片的下载
-        if image.size[0] < min_size or image.size[1] < min_size:
-            return True
-        if image.format == 'GIF':
-            return
-        elif image.format == 'png':
-            if image.mode != 'RGB':
+
+        # 处理 data:image/xxx;base64, 前缀
+        if ',' in base64_string and 'base64' in base64_string:
+            base64_string = base64_string.split(',', 1)[1]
+
+        self.filename = hashlib.md5(base64_string[:200].encode()).hexdigest() + '.jpg'
+        self.save_path_and_name = os.path.join(self.save_path, self.filename)
+
+        try:
+            image_data = base64.b64decode(base64_string)
+            image = Image.open(io.BytesIO(image_data))
+            if image.size[0] < min_size or image.size[1] < min_size:
+                self._skip_count += 1
+                return False
+            if image.format == 'GIF':
+                return False
+            if image.format == 'PNG' and image.mode != 'RGB':
                 image = image.convert('RGB')
-        image.save(self.save_path_and_name)
-        return True
+            image.save(self.save_path_and_name, 'JPEG', quality=92)
+            return True
+        except Exception:
+            return False
+
+    # ─── 链式下载（多方法降级） ──────────────────────────────
 
     def link_download_tools(self, url, show_log=True, is_async=True):
-        """
-        链式下载
-        :param is_async:
-        :param show_log:
-        :param url:
-        :return:
-        """
+        """链式下载入口：依次尝试多种下载方式"""
+        if url is None or url == '':
+            return False
+
         if is_async:
-            time.sleep(0.01)
-            # threading.Thread(target=self.async_link_download_tools, args=(url, show_log)).start()
-            self.thread_pool.submit(self.async_link_download_tools, url, show_log)
+            # 非阻塞提交到线程池
+            self.thread_pool.submit(self._async_link_download, url, show_log)
         else:
-            self.async_link_download_tools(url, show_log)
+            return self._async_link_download(url, show_log)
 
-    def async_link_download_tools(self, url, show_log=True):
-        """
-        异步链式下载
-        :param show_log:
-        :param url:
-        :return:
-        """
-        if url is None:
-            return False
-        self.filename = hashlib.md5(url.encode()).hexdigest() + '.jpg'
+    def _async_link_download(self, url: str, show_log: bool = True) -> bool:
+        """实际执行链式下载（多种方式降级尝试）"""
+        # 生成文件名
+        url_hash = hashlib.md5(url.encode()).hexdigest()
+        self.filename = f"{url_hash}.jpg"
         self.save_path_and_name = os.path.join(self.save_path, self.filename)
-        if self.download_carry_headers(url) is True:
+
+        # 如果文件已存在则跳过
+        if os.path.exists(self.save_path_and_name):
             return True
-        elif self.urllib_download(url) is True:
+
+        # 依次尝试
+        if self.download_carry_headers(url):
+            self._success_count += 1
             return True
-        elif self.requests_download(url) is True:
+        elif self.requests_download(url):
+            self._success_count += 1
             return True
-        elif self.wget_download(url) is True:
+        elif self.urllib_download(url):
+            self._success_count += 1
             return True
         else:
-            if show_log:
-                log_utils.log_info(f'4种下载方式均失败, 放弃当前图片: {url}')
+            self._failed_count += 1
+            if show_log and self._failed_count % 50 == 0:
+                log_utils.log_warning(
+                    f"累计 {self._failed_count} 张图片下载失败 (最近: {url[:80]}...)"
+                )
             return False
 
-    def check_images_count(self, min_count):
-        """
-        检查图片数量是否已经到达所设置的数量
-        :param min_count:
-        :return:
-        """
-        if len(os.listdir(self.save_path)) >= min_count:
-            return True
-        else:
+    # ─── 计数与状态 ──────────────────────────────────────────
+
+    def check_images_count(self, min_count: int) -> bool:
+        """检查已下载图片数量是否达到目标"""
+        if min_count <= 0:
+            return False
+        try:
+            return len(os.listdir(self.save_path)) >= min_count
+        except FileNotFoundError:
             return False
 
-    def get_download_images_count(self):
-        """
-        获取已经下载的图片的数量
-        :return:
-        """
-        return len(os.listdir(self.save_path))
+    def get_downloaded_count(self) -> int:
+        """获取已下载的图片数量"""
+        try:
+            return len(os.listdir(self.save_path))
+        except FileNotFoundError:
+            return 0
 
+    @property
+    def failed_count(self):
+        return self._failed_count
 
-if __name__ == '__main__':
-    test_url = """https://archive-images.prod.global.a201836.reutersmedia.net/2022/03/21/2022-03-21T182907Z_18054_MRPRC2C6T9OLXEP_RTRMADP_0_UKRAINE-CRISIS-KYIV-DEFENCE.JPG"""
+    @property
+    def success_count(self):
+        return self._success_count
+
+    # ─── 生命周期 ────────────────────────────────────────────
+
+    def shutdown(self, wait: bool = True):
+        """关闭线程池，等待所有下载任务完成"""
+        log_utils.log_info("正在关闭下载线程池...")
+        self.thread_pool.shutdown(wait=wait)
+        log_utils.log_info("线程池已关闭。")
